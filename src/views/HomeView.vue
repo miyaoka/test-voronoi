@@ -6,10 +6,12 @@ import { computed, onMounted, ref } from "vue";
 const vr = ref("");
 const delaunay = ref(Delaunay.from([]));
 const areaList = ref(
-  Array.from(new Array(70), (_, i) => {
+  Array.from(new Array(20), (_, i) => {
     return {
+      id: i,
       point: [Math.random() * 960, Math.random() * 500],
       color: Math.floor(i % 6) * 60,
+      rank: Math.random() * Math.random() * 10,
     };
   })
 );
@@ -30,6 +32,12 @@ const onPointerUp = (e) => {
   document.removeEventListener("pointerup", onPointerUp);
 };
 const onPointerDown = (i: number) => {
+  if (isRemoveMode.value) {
+    areaList.value.splice(i, 1);
+    isRemoveMode.value = false;
+    render();
+    return;
+  }
   draggingIdx.value = i;
   // dragStartPoint = areaList.value[i].point;
   document.addEventListener("pointermove", onPointerMove);
@@ -45,6 +53,8 @@ const render = () => {
   voronoi.value.renderCell;
 };
 
+const isRemoveMode = ref(false);
+
 render();
 </script>
 
@@ -59,46 +69,60 @@ render();
     >
       <path
         v-for="(area, i) in areaList"
-        :key="i"
+        :key="area.id"
         :d="voronoi.renderCell(i)"
         :fill="`hsl(${areaList[i].color}, 50%, 80%)`"
         class="fill"
       />
-      <path :d="vr" stroke="#000" />
-      <path :d="dr" stroke="#ff0" fill="none" />
+      <path :d="vr" stroke="#fff" />
+      <path :d="dr" stroke="#000" fill="none" style="opacity: 0.1" />
     </svg>
     <div
       class="draggable"
       v-for="(area, i) in areaList"
-      :key="i"
+      :key="area.id"
       :style="{ left: `${area.point[0]}px`, top: `${area.point[1]}px` }"
       @pointerdown="onPointerDown(i)"
     >
-      <div class="btn">
-        {{ i }}{{ `(${[...voronoi.neighbors(i)].length})` }}
-      </div>
+      <div
+        class="btn"
+        :style="{
+          width: `${Math.ceil(area.rank) * 2}px`,
+          height: `${Math.ceil(area.rank) * 2}px`,
+        }"
+      ></div>
+      <div class="name">{{ i }}{{ `(${[...voronoi.neighbors(i)]})` }}</div>
     </div>
+  </div>
+
+  <div>
+    <button>add</button>
+    <button @click="isRemoveMode = true">remove</button>
   </div>
 </template>
 
 <style>
 .container {
-  position: fixed;
-  left: 0;
-  top: 0;
 }
 .draggable {
   position: fixed;
   /* pointer-events: none; */
 }
 .btn {
-  width: 4px;
-  height: 4px;
   background-color: #f00;
   border-radius: 50%;
   /* border: 1px solid #ccc; */
   cursor: pointer;
+  filter: blur(1px);
+  transform: translate(-50%, -50%);
+}
+.name {
   user-select: none;
+  position: absolute;
+  top: 0;
+}
+.fill {
+  filter: blur(4px);
 }
 .fill:hover {
   opacity: 0.5;
