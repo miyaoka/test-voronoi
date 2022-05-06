@@ -1,41 +1,48 @@
 <script setup lang="ts">
 import { Delaunay, Voronoi } from "d3-delaunay";
 import { UseDraggable } from "@vueuse/components";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
-const points = ref(
-  Array.from(new Array(100), (_, i) => {
-    return [Math.random() * 960, Math.random() * 500];
+const vr = ref("");
+const delaunay = ref(Delaunay.from([]));
+const areaList = ref(
+  Array.from(new Array(70), (_, i) => {
+    return {
+      point: [Math.random() * 960, Math.random() * 500],
+      color: Math.floor(i % 6) * 60,
+    };
   })
 );
 const draggingIdx = ref(-1);
-let dragStartPoint = [0, 0];
+// let dragStartPoint = [0, 0];
+
+const voronoi = computed(() => delaunay.value.voronoi([0, 0, 960, 500]));
 
 const onPointerMove = (e: PointerEvent) => {
   const { clientX, clientY } = e;
   // const [px, py] = points.value[draggingIdx.value];
   // const [sx, sy] = dragStartPoint;
-  points.value[draggingIdx.value] = [clientX, clientY];
+  areaList.value[draggingIdx.value].point = [clientX, clientY];
   render();
 };
 const onPointerUp = (e) => {
-  console.log("up", e);
-
   document.removeEventListener("pointermove", onPointerMove);
   document.removeEventListener("pointerup", onPointerUp);
 };
 const onPointerDown = (i: number) => {
   draggingIdx.value = i;
-  dragStartPoint = points.value[i];
+  // dragStartPoint = areaList.value[i].point;
   document.addEventListener("pointermove", onPointerMove);
   document.addEventListener("pointerup", onPointerUp);
 };
 
-const vr = ref("");
+const dr = ref("");
 const render = () => {
-  const delaunay = Delaunay.from(points.value);
-  const voronoi = delaunay.voronoi([0, 0, 960, 500]);
-  vr.value = voronoi.render();
+  delaunay.value = Delaunay.from(areaList.value.map((item) => item.point));
+
+  vr.value = voronoi.value.render();
+  dr.value = delaunay.value.render();
+  voronoi.value.renderCell;
 };
 
 render();
@@ -50,16 +57,26 @@ render();
       viewBox="0, 0, 960, 500"
       ref="svgEl"
     >
+      <path
+        v-for="(area, i) in areaList"
+        :key="i"
+        :d="voronoi.renderCell(i)"
+        :fill="`hsl(${areaList[i].color}, 50%, 80%)`"
+        class="fill"
+      />
       <path :d="vr" stroke="#000" />
+      <path :d="dr" stroke="#ff0" fill="none" />
     </svg>
     <div
       class="draggable"
-      v-for="(point, i) in points"
+      v-for="(area, i) in areaList"
       :key="i"
-      :style="{ left: `${point[0]}px`, top: `${point[1]}px` }"
+      :style="{ left: `${area.point[0]}px`, top: `${area.point[1]}px` }"
       @pointerdown="onPointerDown(i)"
     >
-      <div class="btn"></div>
+      <div class="btn">
+        {{ i }}{{ `(${[...voronoi.neighbors(i)].length})` }}
+      </div>
     </div>
   </div>
 </template>
@@ -72,13 +89,18 @@ render();
 }
 .draggable {
   position: fixed;
+  /* pointer-events: none; */
 }
 .btn {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
   background-color: #f00;
   border-radius: 50%;
   /* border: 1px solid #ccc; */
   cursor: pointer;
+  user-select: none;
+}
+.fill:hover {
+  opacity: 0.5;
 }
 </style>
